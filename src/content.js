@@ -65,44 +65,63 @@
     return firstMatch(DESCRIPTION_SELECTORS) || largestTextBlock(firstMatch(PANE_SELECTORS));
   }
 
-  // The card sits directly under the job header rather than above the
-  // description, because LinkedIn stacks its own panels between the two and
-  // they pushed the card below the fold.
-  //
-  // Everything here is resolved relative to the description, never to a
-  // page-wide pane. On the search layout the results list and the job details
-  // are siblings, and the list carries its own heading, often visually hidden.
-  // Searching from the top of the page found that heading first and inserted
-  // the card beside the list instead of inside the job.
-  //
-  // The detail root is the nearest ancestor of the description that also holds
-  // a heading outside it. That ancestor cannot be the results list, because the
-  // description is not inside the results list.
+  // Anchored on the Apply control rather than on a heading. Two earlier
+  // attempts keyed off the job title, and the title is not reliably an h1 or h2
+  // in this layout, so the search walked past the details pane and landed on a
+  // page-level heading in a full-width container. The Apply button is
+  // unmistakable, and it is exactly where the card is wanted: just below it.
+  function applyControl(root, description) {
+    const nodes = root.querySelectorAll(
+      '.jobs-apply-button, button, a[role="button"], a[class*="apply"]'
+    );
+    for (const node of nodes) {
+      if (description.contains(node)) continue;
+      const label =
+        (node.getAttribute('aria-label') || '') + ' ' + (node.innerText || '');
+      if (/(^|\s)(easy\s+)?apply(\s|$)/i.test(label) || /\bapply\s+to\b/i.test(label)) {
+        return node;
+      }
+    }
+    return null;
+  }
+
+  function headingOutside(root, description) {
+    const headings = root.querySelectorAll('h1, h2, h3');
+    for (const heading of headings) {
+      if (!description.contains(heading)) return heading;
+    }
+    return null;
+  }
+
+  // The details pane is the nearest ancestor of the description that also holds
+  // the job's own Apply control, or failing that a heading. It cannot be the
+  // results list, because the description is not inside the results list.
   function detailRoot(description) {
     let node = description.parentElement;
     while (node && node !== doc.body) {
-      const headings = node.querySelectorAll('h1, h2');
-      for (const heading of headings) {
-        if (!description.contains(heading)) return { root: node, title: heading };
-      }
+      const anchor =
+        applyControl(node, description) || headingOutside(node, description);
+      if (anchor) return { root: node, anchor: anchor };
       node = node.parentElement;
     }
     return null;
   }
 
-  // The header is the outermost block inside the detail root that holds the job
-  // title but not the description. Structure rather than class names, so a
-  // LinkedIn rename does not move the card.
+  // The header is the outermost block inside that root holding the anchor but
+  // not the description. Structure rather than class names, so a LinkedIn
+  // rename does not move the card.
   function headerBlock(description) {
     const found = detailRoot(description);
     if (!found) return null;
 
     for (const selector of TOP_CARD_SELECTORS) {
       const known = found.root.querySelector(selector);
-      if (known && !known.contains(description)) return known;
+      if (known && !known.contains(description) && known.contains(found.anchor)) {
+        return known;
+      }
     }
 
-    let node = found.title;
+    let node = found.anchor;
     while (
       node.parentElement &&
       node.parentElement !== found.root &&
