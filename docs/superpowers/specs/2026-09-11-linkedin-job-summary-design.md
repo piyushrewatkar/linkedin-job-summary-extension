@@ -58,6 +58,10 @@ wrong lives in `extractor.js`, which is a pure function of a string and is unit 
 2. A `MutationObserver` on the job details pane fires when the pane content changes.
 3. The handler resolves the current job id and, if it differs from the last one rendered,
    locates the description element and reads its `innerText`.
+   Job id is read from the `currentJobId` query parameter on search and collections URLs,
+   and from the `/jobs/view/<id>` path segment on standalone job pages. If neither is
+   present, a hash of the first 200 characters of the description text is used instead, so
+   the change check still works and the card is not rebuilt on every unrelated mutation.
 4. The text goes to `extractor.extract(text)`, returning a summary object.
 5. `card.render(summary)` builds an element, which is inserted directly above the
    description element.
@@ -108,7 +112,7 @@ boilerplate does not pollute the results.
 
 ### Skills
 
-`skills.js` holds roughly 400 canonical skills, each with an alias list, covering languages,
+`skills.js` holds at least 300 canonical skills, each with an alias list, covering languages,
 frameworks, cloud platforms, data tooling, and common developer tools.
 
 - Matching is word-boundary regex, case-insensitive, against block text.
