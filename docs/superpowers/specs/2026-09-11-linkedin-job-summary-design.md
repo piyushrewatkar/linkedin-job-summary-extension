@@ -116,8 +116,10 @@ boilerplate does not pollute the results.
 frameworks, cloud platforms, data tooling, and common developer tools.
 
 - Matching is word-boundary regex, case-insensitive, against block text.
-- Short and ambiguous names (Go, R, C, Rust) use tightened patterns to avoid matching Google,
+- Short and ambiguous names (Go, R, C) use tightened patterns to avoid matching Google,
   ordinary capital letters, or English words.
+- Names that nest inside a longer name (Spring inside Spring Boot, React inside React Native,
+  SQL inside SQL Server) exclude the longer form, so one mention yields one skill.
 - A skill found in a preferred block goes to preferred; anything else goes to required.
 - A skill appearing in both groups is reported as required only.
 - Each group is ordered by first appearance and capped at 12 entries, keeping the card
@@ -132,9 +134,12 @@ Regex covers the common phrasings:
 - `at least two years`, `minimum of 7 years`, `no less than 4 years`
 - spelled-out numbers one through fifteen
 
-Each hit is scored by proximity to a general experience phrase (`years of experience`,
-`professional experience`, `industry experience`) versus a specific technology name. The
-highest-scoring general hit becomes the headline number. Technology-specific hits are
+Each hit is judged against its own line, never a wider window. If the line names a skill,
+the number qualifies that skill. Otherwise the hit scores on whether it sits in a required
+section and whether the line carries a general experience phrase (`years of experience`,
+`professional experience`, `industry experience`). The highest-scoring general hit becomes
+the headline number. A window wider than one line is wrong: a skill on the following bullet
+would capture the headline number and the job would show no overall bar. Technology-specific hits are
 retained and rendered inline beside that skill, so "3 years of Python" reads as a qualifier
 on Python rather than as the job's overall bar.
 
@@ -144,7 +149,9 @@ extension never guesses a number.
 ### Education
 
 Patterns for bachelor, master, doctorate and their abbreviations (BS, B.S., BA, MS, M.S.,
-MBA, PhD), plus the field of study when one follows. Equivalency phrases such as
+MBA, PhD), plus the field of study when one follows. Spelled-out levels match case
+insensitively; abbreviations must match case sensitively, because a case-insensitive `B.E.`
+also matches the ordinary word "be" and turns "travel may be required" into a degree. Equivalency phrases such as
 "or equivalent experience" and "or equivalent practical experience" are captured and shown,
 because they change whether the requirement is binding.
 
