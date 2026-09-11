@@ -28,11 +28,19 @@
   function isHeadingLine(line) {
     const t = line.trim();
     if (t.length < 2 || t.length > 90) return false;
-    if (/^[-•*•●\d]/.test(t)) return false; // bullets and numbered items
+    if (/^[-•*●\d]/.test(t)) return false; // bullets and numbered items
     if (t.split(/\s+/).length > 10) return false;
     if (t.endsWith(':')) return true;
     if (t === t.toUpperCase() && /[A-Z]/.test(t)) return true;
-    return classifyHeading(t) !== null && !/[.!?]$/.test(t);
+    // A keyword-only heading is short. Without this cap, "Experience with Java
+    // and Spring Boot" reads as a heading and the line is dropped. Browsers do
+    // not put a bullet character in innerText, so the guard above cannot protect
+    // a list item, and a swallowed bullet loses its skills silently.
+    return (
+      t.split(/\s+/).length <= 4 &&
+      classifyHeading(t) !== null &&
+      !/[.!?]$/.test(t)
+    );
   }
 
   function splitSections(text) {
@@ -69,7 +77,8 @@
 
   function getMatchers() {
     if (matcherCache) return matcherCache;
-    const skills = root.LJS_SKILLS || [];
+    if (!root.LJS_SKILLS) return []; // not loaded yet; never cache the empty case
+    const skills = root.LJS_SKILLS;
     matcherCache = skills.map((skill) => {
       if (skill.pattern) return { name: skill.name, re: skill.pattern };
       const terms = [skill.name].concat(skill.aliases || []);
@@ -146,8 +155,9 @@
   const NUM = '\\d{1,2}|' + Object.keys(NUM_WORDS).join('|');
 
   const YEARS_RE = new RegExp(
-    '(at least|minimum(?:\\s+of)?|min\\.?|no less than|over|more than)?\\s*' +
-      '(' + NUM + ')' +
+    '((?<![A-Za-z])at least|(?<![A-Za-z])minimum(?:\\s+of)?|(?<![A-Za-z])min\\.?|' +
+      '(?<![A-Za-z])no less than|(?<![A-Za-z])over|(?<![A-Za-z])more than)?\\s*' +
+      '(?<![\\d.])(' + NUM + ')' +
       '\\s*(?:(\\+|plus)|(?:\\s*(?:-|–|—|to)\\s*(' + NUM + ')))?' +
       '\\s*\\+?\\s*(?:years?|yrs?)\\b',
     'gi'
@@ -187,15 +197,25 @@
         let m;
         while ((m = YEARS_RE.exec(line)) !== null) {
           const min = toNumber(m[2]);
-          if (min == null || min > 40) continue;
+          if (min == null || min < 1 || min > 40) continue;
           const max = toNumber(m[4]);
           const plus = Boolean(m[3]) || Boolean(m[1]);
 
           let namedSkill = null;
-          for (const matcher of matchers) {
-            if (matcher.re.test(line)) {
-              namedSkill = matcher.name;
-              break;
+          if (!GENERAL_EXPERIENCE_RE.test(line)) {
+            // "8+ years of professional experience building services on AWS" is
+            // the job's overall bar, not AWS's, so a general phrase wins outright.
+            // Otherwise the qualifying skill is the one named just after the
+            // phrase, chosen by position rather than by dictionary order.
+            const end = m.index + m[0].length;
+            const near = line.slice(end, end + 40);
+            let nearest = Infinity;
+            for (const matcher of matchers) {
+              const hit = matcher.re.exec(near);
+              if (hit && hit.index < nearest) {
+                nearest = hit.index;
+                namedSkill = matcher.name;
+              }
             }
           }
 
@@ -242,7 +262,15 @@
   // also matches the ordinary word "be", so "travel may be required" would be
   // reported as a bachelor degree.
   const EDU_ABBR_RE = new RegExp(
-    '\\b(B\\.?S\\.?c?|B\\.?A\\.?|B\\.?E\\.?|B\\.?Tech|M\\.?S\\.?c?|M\\.?A\\.?|M\\.?Eng|M\\.?Tech)\\b' +
+    '\\b(B\\.?S\\.?c?|B\\.?E\\.?|B\\.?Tech|M\\.?S\\.?c?|M\\.?Eng|M\\.?Tech)\\b' +
+      '(?:\\s+degree)?' + EDU_FIELD + EDU_TAIL,
+    'g'
+  );
+
+  // BA and MA also spell a US state and a job title, so they count only when a
+  // degree word or a field of study follows. "Cambridge, MA." is not a master's.
+  const EDU_AMBIGUOUS_ABBR_RE = new RegExp(
+    '\\b(B\\.?A\\.?|M\\.?A\\.?)\\b(?=\\s+(?:degree|in|of)\\b)' +
       '(?:\\s+degree)?' + EDU_FIELD + EDU_TAIL,
     'g'
   );
@@ -280,7 +308,7 @@
 
     for (const section of sections) {
       const text = section.text;
-      for (const re of [EDU_WORD_RE, EDU_ABBR_RE]) {
+      for (const re of [EDU_WORD_RE, EDU_ABBR_RE, EDU_AMBIGUOUS_ABBR_RE]) {
         re.lastIndex = 0;
         let m;
         while ((m = re.exec(text)) !== null) {

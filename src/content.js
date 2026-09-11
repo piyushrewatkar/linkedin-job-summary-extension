@@ -29,21 +29,29 @@
     return null;
   }
 
-  // Last resort: the biggest text block inside the details pane.
+  // Last resort: descend to the tightest wrapper around the pane's text. A plain
+  // maximum cannot work, because an ancestor always holds at least as much text
+  // as its child and would always win. Descending also touches a handful of
+  // nodes rather than every node in the pane.
   function largestTextBlock(pane) {
     if (!pane) return null;
-    let best = null;
-    let bestLength = 400; // below this it is chrome, not a description
-    const candidates = pane.querySelectorAll('div, section, article');
-    for (const node of candidates) {
-      if (node.querySelector('[' + CARD_ATTR + ']')) continue;
-      const length = (node.innerText || '').trim().length;
-      if (length > bestLength) {
-        bestLength = length;
-        best = node;
+    let node = pane;
+    let length = (node.innerText || '').trim().length;
+    if (length < 400) return null; // below this it is chrome, not a description
+    for (;;) {
+      let next = null;
+      for (const child of node.children) {
+        if (child.hasAttribute(CARD_ATTR)) continue;
+        const childLength = (child.innerText || '').trim().length;
+        if (childLength >= length * 0.9) {
+          next = child;
+          length = childLength;
+          break;
+        }
       }
+      if (!next) return node;
+      node = next;
     }
-    return best;
   }
 
   function findDescription() {
@@ -52,20 +60,21 @@
 
   function hashOf(text) {
     let h = 0;
-    const sample = text.slice(0, 200);
-    for (let i = 0; i < sample.length; i += 1) {
-      h = (h * 31 + sample.charCodeAt(i)) | 0;
+    for (let i = 0; i < text.length; i += 1) {
+      h = (h * 31 + text.charCodeAt(i)) | 0;
     }
     return 'h' + h;
   }
 
+  // The text hash is part of the key, not a fallback. LinkedIn updates the URL
+  // before it swaps the pane content, so keying on the id alone lets a card
+  // built from the previous job's text be treated as current and never replaced.
   function jobKey(descriptionText) {
     const params = new URLSearchParams(root.location.search);
     const current = params.get('currentJobId');
-    if (current) return 'id' + current;
     const viewMatch = root.location.pathname.match(/\/jobs\/view\/(\d+)/);
-    if (viewMatch) return 'id' + viewMatch[1];
-    return hashOf(descriptionText);
+    const id = current || (viewMatch ? viewMatch[1] : 'none');
+    return 'id' + id + ':' + hashOf(descriptionText);
   }
 
   let lastKey = null;
@@ -75,6 +84,16 @@
 
     if (!description) {
       lastKey = null;
+      const pane = firstMatch(PANE_SELECTORS);
+      const paneText = pane ? (pane.innerText || '').trim() : '';
+      // Substantial content is present but no selector matched it, which means
+      // LinkedIn's markup moved. Say so rather than vanish silently.
+      if (paneText.length > 400 && !doc.querySelector('[' + CARD_ATTR + ']')) {
+        pane.insertBefore(
+          root.LJSCard.renderError('Could not find the job description on this page.'),
+          pane.firstChild
+        );
+      }
       return;
     }
 
@@ -94,9 +113,8 @@
       card = root.LJSCard.renderError('Could not read this posting.');
     }
 
-    const anchor = description.parentNode ? description : null;
-    if (!anchor || !anchor.parentNode) return;
-    anchor.parentNode.insertBefore(card, anchor);
+    if (!description.parentNode) return;
+    description.parentNode.insertBefore(card, description);
     lastKey = key;
   }
 
