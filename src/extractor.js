@@ -203,6 +203,13 @@
           const max = toNumber(m[4]);
           const plus = Boolean(m[3]) || Boolean(m[1]);
 
+          // "4 year degree" states how long the degree takes, not how long the
+          // candidate must have worked. "Degree plus 8 years of experience" is a
+          // different sentence and still counts, because there the number is not
+          // attached to the word degree.
+          const after = line.slice(m.index + m[0].length, m.index + m[0].length + 40);
+          if (/^\s*(college\s+|university\s+)?degree\b/i.test(after)) continue;
+
           let namedSkill = null;
           if (!GENERAL_EXPERIENCE_RE.test(line)) {
             // "8+ years of professional experience building services on AWS" is
@@ -361,6 +368,18 @@
   const POSTING_START_RE =
     /^[ \t]*(about the job|about this job|job description|about the role)[ \t]*:?[ \t]*$/im;
 
+  // Below the posting LinkedIn stacks similar-jobs rails, and those job titles
+  // reach the extractor as skills: an NLP role in the rail becomes NLP in the
+  // requirements. Each of these marks where the employer's text stops.
+  const POSTING_END_RE = new RegExp(
+    '^[ \\t]*(show (more|less)|see (more|less)|similar jobs|people also viewed|' +
+      'more jobs at\\b[^\\n]*|looking for a job|set alert[^\\n]*|report this job|' +
+      'seniority level|employment type|job function|industries|' +
+      'referrals increase your chances[^\\n]*|see how you compare[^\\n]*|' +
+      'candidates who clicked apply|premium|jobs you may be interested in)[ \\t]*:?[ \\t]*$',
+    'im'
+  );
+
   const MIN_POSTING_LENGTH = 200;
 
   function trimToPosting(text) {
@@ -373,8 +392,16 @@
     return body.trim().length >= MIN_POSTING_LENGTH ? body : source;
   }
 
+  function trimAfterPosting(text) {
+    const end = POSTING_END_RE.exec(text);
+    if (!end) return text;
+    const body = text.slice(0, end.index);
+    // Same guard at this end: a marker appearing early is not the real one.
+    return body.trim().length >= MIN_POSTING_LENGTH ? body : text;
+  }
+
   function extract(text) {
-    const sections = usableSections(splitSections(trimToPosting(text)));
+    const sections = usableSections(splitSections(trimAfterPosting(trimToPosting(text))));
     const skills = extractSkills(sections);
     const years = extractYears(sections);
     const education = extractEducation(sections);
@@ -403,7 +430,8 @@
     extractYears: extractYears,
     extractEducation: extractEducation,
     extract: extract,
-    trimToPosting: trimToPosting
+    trimToPosting: trimToPosting,
+    trimAfterPosting: trimAfterPosting
   };
   if (typeof module !== 'undefined' && module.exports) {
     module.exports = root.LJSExtractor;

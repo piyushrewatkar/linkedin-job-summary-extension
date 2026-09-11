@@ -131,3 +131,62 @@ test('the posting heading itself is dropped, not kept as content', () => {
   const body = 'x'.repeat(250);
   assert.equal(trimToPosting('panel noise\nAbout the job\n' + body).trim(), body);
 });
+
+test('similar-jobs rails below the posting do not contribute skills', () => {
+  // Rail entries are job titles. Read as part of the posting, an NLP role in
+  // the rail becomes NLP in the requirements.
+  const page = [
+    'About the job',
+    'Lead and conduct code review, design review, testing and debugging activities.',
+    'Clearly communicates Agile concepts to partners within the product team here.',
+    'Delivers high-performance, scalable, repeatable and secure deliverables daily.',
+    'Show more',
+    'People also viewed',
+    'Senior Machine Learning Engineer',
+    'NLP Research Scientist',
+    'Workday Integration Consultant',
+    'Oracle Database Administrator',
+    'Distributed Systems Engineer'
+  ].join('\n');
+  const out = required(page);
+  for (const leaked of ['Machine learning', 'NLP', 'Workday', 'Oracle Database', 'Distributed systems']) {
+    assert.ok(!out.includes(leaked), leaked + ' leaked in from the similar-jobs rail');
+  }
+  assert.ok(out.includes('Code review'));
+  assert.ok(out.includes('Agile'));
+});
+
+test('"4 year degree" is the length of a degree, not an experience bar', () => {
+  const summary = extract(
+    'Requirements\n 4 year degree or equivalent experience\n 5+ years of software development experience'
+  );
+  assert.equal(summary.years.label, '5+ years');
+});
+
+test('a four year degree on its own produces no experience row', () => {
+  assert.equal(
+    extract('Requirements\nFour year degree or equivalent experience required for this role.').years,
+    null
+  );
+});
+
+test('"degree plus N years of experience" still counts as the bar', () => {
+  // Guards the fix above against over-correcting: there the number is not
+  // attached to the word degree, so it really is an experience requirement.
+  assert.equal(
+    extract("Requirements\nBachelor's Degree in Computer Science plus 8 years of experience.").years.label,
+    '8 years'
+  );
+});
+
+test('text with no end marker is left alone', () => {
+  const { trimAfterPosting } = require('../src/extractor.js');
+  const plain = 'Strong Java, Kubernetes and Terraform experience building production services daily.';
+  assert.equal(trimAfterPosting(plain), plain);
+});
+
+test('an end marker appearing early is not treated as the end', () => {
+  const { trimAfterPosting } = require('../src/extractor.js');
+  const text = 'Premium\nStrong Java and Kubernetes experience building production services.';
+  assert.equal(trimAfterPosting(text), text);
+});
