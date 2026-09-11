@@ -313,12 +313,42 @@
     };
   }
 
+  function withYears(names, perSkill) {
+    return names.map((name) => ({
+      name: name,
+      years: Object.prototype.hasOwnProperty.call(perSkill, name) ? perSkill[name] : null
+    }));
+  }
+
+  function extract(text) {
+    const sections = usableSections(splitSections(text));
+    const skills = extractSkills(sections);
+    const years = extractYears(sections);
+    const education = extractEducation(sections);
+
+    const skillsRequired = withYears(skills.required, years.perSkill);
+    const skillsPreferred = withYears(skills.preferred, years.perSkill);
+
+    return {
+      years: years.headline,
+      skillsRequired: skillsRequired,
+      skillsPreferred: skillsPreferred,
+      education: education,
+      empty:
+        years.headline === null &&
+        skillsRequired.length === 0 &&
+        skillsPreferred.length === 0 &&
+        education === null
+    };
+  }
+
   root.LJSExtractor = {
     splitSections: splitSections,
     usableSections: usableSections,
     extractSkills: extractSkills,
     extractYears: extractYears,
-    extractEducation: extractEducation
+    extractEducation: extractEducation,
+    extract: extract
   };
   if (typeof module !== 'undefined' && module.exports) {
     module.exports = root.LJSExtractor;

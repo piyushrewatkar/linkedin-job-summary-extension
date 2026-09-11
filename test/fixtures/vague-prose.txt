@@ -1,0 +1,8 @@
+About the job
+
+We are a small team looking for someone who can own features end to end.
+You will write Python every day, work in Django on the API side, and build
+the front end in React. We care more about how you think than about a list
+of buzzwords, but you should bring at least 3 years of relevant experience
+and be comfortable owning a service in production. Our stack runs on AWS
+and we deploy with Docker several times a day.

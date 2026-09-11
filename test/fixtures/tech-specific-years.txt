@@ -1,0 +1,13 @@
+About the job
+
+Senior Machine Learning Engineer, Ranking.
+
+Basic Qualifications
+- 7+ years of professional software engineering experience.
+- 3+ years of Python in a production setting.
+- 2 years of PyTorch or TensorFlow.
+- Master's degree in Computer Science, Statistics, or a related field.
+
+Preferred Qualifications
+- Publications in applied machine learning.
+- Experience with Spark and Airflow.

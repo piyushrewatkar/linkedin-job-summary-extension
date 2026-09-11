@@ -1,0 +1,14 @@
+About the job
+
+Join our analytics team as a Business Analyst supporting the revenue org.
+
+Minimum Qualifications
+- 2+ years of professional experience in an analytical role.
+- Strong SQL skills and advanced Excel.
+
+Nice to Have
+- Tableau or Power BI dashboard development.
+- Python for ad hoc analysis.
+- Snowflake or another cloud data warehouse.
+- dbt and data modeling experience.
+- Exposure to A/B testing and experimentation.
