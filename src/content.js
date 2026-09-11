@@ -39,24 +39,30 @@
     return null;
   }
 
-  // LinkedIn's filter bar carries four buttons labelled "Apply current filter to
-  // show results", and they sit above the job in the page. Matching one of those
-  // is what put the card at the top of the window. The job's own control is
-  // recognisable by its class or by an aria-label naming the job.
+  // The job's Apply control takes several shapes. On one layout it is a button
+  // carrying a jobs-apply-button class; on another it is a plain anchor with no
+  // role at all, labelled "Apply on company website". Anchors were excluded
+  // before, so on that layout no control was found and every anchor for the
+  // card fell back to a full-width container.
+  //
+  // The decoys all name themselves: LinkedIn's filter bar has four buttons
+  // labelled "Apply current filter to show results", there is an "Easy Apply
+  // filter" pill, and other extensions add their own "Apply with Autofill".
   function isApplyControl(node) {
     if (/jobs-apply-button/.test(String(node.className || ''))) return true;
     const aria = node.getAttribute('aria-label') || '';
     const text = (node.innerText || '').trim();
-    if (/\bfilter|show results|autofill/i.test(aria + ' ' + text)) return false;
-    if (/^apply to\b/i.test(aria)) return true;
+    if (/\bfilter|show results|autofill|simplify/i.test(aria + ' ' + text)) return false;
+    if (/^apply\b/i.test(aria)) return true;
     return /^(easy\s+)?apply(\s+now)?$/i.test(text);
   }
 
   function applyControl(root) {
-    const nodes = (root || doc).querySelectorAll(
-      '.jobs-apply-button, button, a[role="button"]'
-    );
-    for (const node of nodes) {
+    const scope = root || doc;
+    // Class first when it is there, then the general sweep.
+    const classed = scope.querySelector('.jobs-apply-button');
+    if (classed && isApplyControl(classed)) return classed;
+    for (const node of scope.querySelectorAll('button, a')) {
       if (isApplyControl(node)) return node;
     }
     return null;
