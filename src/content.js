@@ -118,29 +118,73 @@
     );
   }
 
-  // The header is the outermost block inside the pane that holds the Apply
-  // control but not the description, so the card lands directly beneath the
-  // Apply and Save buttons.
-  function headerBlock(pane, description) {
-    if (!pane || !description) return null;
-    const apply = applyControl(pane);
-    const anchor = apply || firstMatch(['h1', 'h2', 'h3'], pane);
-    if (!anchor || description.contains(anchor)) return null;
+  // Anchors to try, best first. Naming the right container has failed across
+  // LinkedIn's layout variants, so instead every candidate is tried and the
+  // result is measured. Geometry does not vary between variants.
+  function headerCandidates(pane, description) {
+    const anchor = applyControl(pane) || firstMatch(['h1', 'h2', 'h3'], pane);
+    const candidates = [];
+    if (!anchor || description.contains(anchor)) return candidates;
 
     for (const selector of TOP_CARD_SELECTORS) {
       const known = pane.querySelector(selector);
-      if (known && !known.contains(description) && known.contains(anchor)) return known;
+      if (known && !known.contains(description) && known.contains(anchor)) {
+        candidates.push(known);
+      }
     }
 
+    // Every block from the Apply control outwards that still excludes the
+    // description. The outermost is usually the header, but not always, so the
+    // inner ones are kept as alternatives.
     let node = anchor;
+    const chain = [];
     while (
       node.parentElement &&
       node.parentElement !== pane &&
       !node.parentElement.contains(description)
     ) {
       node = node.parentElement;
+      chain.push(node);
     }
-    return node.parentElement ? node : null;
+    for (let i = chain.length - 1; i >= 0; i -= 1) candidates.push(chain[i]);
+    return candidates;
+  }
+
+  // A correct placement sits in the same column as the description and above
+  // it. A card spanning both columns, or sitting below the posting, is wrong
+  // however plausible the element that produced it looked.
+  function placementLooksRight(card, description) {
+    const c = card.getBoundingClientRect();
+    const d = description.getBoundingClientRect();
+    if (!c.width || !d.width) return null; // not laid out yet, cannot judge
+    const sameColumn = Math.abs(c.left - d.left) <= 24 && Math.abs(c.width - d.width) <= 96;
+    return sameColumn && c.top <= d.top + 1;
+  }
+
+  function placeCard(card, pane, description) {
+    let unmeasured = null;
+
+    for (const candidate of headerCandidates(pane, description)) {
+      if (!candidate.parentNode) continue;
+      candidate.parentNode.insertBefore(card, candidate.nextSibling);
+      const verdict = placementLooksRight(card, description);
+      if (verdict === true) return 'header';
+      // A candidate that cannot be measured is a second choice at best: a
+      // measured pass always wins over one that merely did not fail.
+      if (verdict === null && !unmeasured) unmeasured = candidate;
+      card.parentNode.removeChild(card);
+    }
+
+    if (unmeasured && unmeasured.parentNode) {
+      unmeasured.parentNode.insertBefore(card, unmeasured.nextSibling);
+      return 'unmeasured';
+    }
+
+    // Directly above the description is always the right column, just lower
+    // than ideal. Better a correct column than a card across the whole page.
+    if (!description.parentNode) return null;
+    description.parentNode.insertBefore(card, description);
+    return 'above-description';
   }
 
   function hashOf(text) {
@@ -163,6 +207,7 @@
   }
 
   let lastKey = null;
+  let verifyTimer = null;
 
   // The script is injected across linkedin.com because a content script only
   // loads with the document, and LinkedIn routes client side: arriving at
@@ -221,16 +266,26 @@
       card = root.LJSCard.renderError('Could not read this posting.');
     }
 
-    const header = headerBlock(pane, description);
-    if (header && header.parentNode) {
-      header.parentNode.insertBefore(card, header.nextSibling);
-    } else {
-      // No header found: fall back to sitting above the description, which is
-      // where the card used to live and is still better than not showing.
-      if (!description.parentNode) return;
-      description.parentNode.insertBefore(card, description);
-    }
+    const placement = placeCard(card, pane, description);
+    if (!placement) return;
     lastKey = key;
+
+    // Layout is not always settled at insertion time, and LinkedIn re-renders
+    // after ours. Re-check once the page has stopped moving and redo the
+    // placement if it drifted.
+    if (verifyTimer) root.clearTimeout(verifyTimer);
+    verifyTimer = root.setTimeout(function () {
+      verifyTimer = null;
+      const placed = doc.querySelector('[' + CARD_ATTR + ']');
+      if (!placed) return;
+      const desc = findDescription(jobPane());
+      if (!desc) return;
+      if (placementLooksRight(placed, desc) === false) {
+        if (placed.parentNode) placed.parentNode.removeChild(placed);
+        lastKey = null;
+        schedule();
+      }
+    }, 900);
   }
 
   let pending = null;
