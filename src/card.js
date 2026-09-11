@@ -58,7 +58,7 @@
     // The applicant count is worth a card on its own, so a posting with no
     // readable requirements is not empty when the count is present.
     const applicants = summary && summary.applicants;
-    if (!summary || (summary.empty && !applicants)) {
+    if (!summary || (summary.empty && !applicants && !summary.company)) {
       return renderError('No skills or experience requirements found.');
     }
     const card = shell(null);
@@ -67,7 +67,7 @@
     // because it is the fastest disqualifier and should be the first thing read.
     // The applicant count sits beside it: it is context about the job rather
     // than a requirement of it, so it gets its own colour.
-    if (summary.years || applicants || summary.skillsRequired.length) {
+    if (summary.years || applicants || summary.company || summary.skillsRequired.length) {
       const first = line(card, null);
       if (summary.years) {
         first.appendChild(el('span', 'ljs-card__yrs', shortYears(summary.years.label)));
@@ -75,6 +75,13 @@
       if (applicants) {
         const chip = el('span', 'ljs-card__apps', applicantsText(applicants));
         chip.title = 'From the LinkedIn Premium panel on this page.';
+        first.appendChild(chip);
+      }
+      if (summary.company) {
+        const chip = el('span', 'ljs-card__co', summary.company.label);
+        chip.title = summary.company.onLinkedIn != null
+          ? summary.company.onLinkedIn.toLocaleString() + ' of them are on LinkedIn.'
+          : 'Company size, as stated on the job page.';
         first.appendChild(chip);
       }
       addTags(first, summary.skillsRequired, false);

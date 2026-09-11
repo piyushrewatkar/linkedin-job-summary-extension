@@ -74,3 +74,13 @@
   padding: 0 7px;
   white-space: nowrap;
 }
+
+/* Slate, so the three context chips stay distinguishable at a glance: blue is
+   the experience bar, amber is the applicant count, slate is the company. */
+.ljs-card__co {
+  background: rgba(128, 128, 128, 0.16);
+  border: 1px solid rgba(128, 128, 128, 0.4);
+  border-radius: 9px;
+  padding: 0 7px;
+  white-space: nowrap;
+}

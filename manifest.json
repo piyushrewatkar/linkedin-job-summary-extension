@@ -17,6 +17,7 @@
         "src/skills.js",
         "src/extractor.js",
         "src/applicants.js",
+        "src/company.js",
         "src/card.js",
         "src/content.js"
       ],

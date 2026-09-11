@@ -243,6 +243,8 @@
       if (!summary.applicants && doc.body) {
         summary.applicants = root.LJSApplicants.parse(doc.body.innerText || '');
       }
+      // The company line sits in the same region, outside the description.
+      summary.company = root.LJSCompany.parse(pane ? pane.innerText || '' : text);
       card = root.LJSCard.render(summary);
     } catch (err) {
       card = root.LJSCard.renderError('Could not read this posting.');

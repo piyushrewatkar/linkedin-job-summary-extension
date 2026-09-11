@@ -11,6 +11,15 @@ you can see the required skills and the years of experience without scrolling th
 
 The same folder loads in Chrome through `chrome://extensions` with the same steps.
 
+## Company size
+
+When the job page states the company's size, the card shows it as a slate chip,
+abbreviated so it stays scannable: "1,001-5,000 employees" renders as `1k-5k employees`.
+Hovering shows how many of them are on LinkedIn, which is a different number and a much
+smaller one.
+
+It is a bracket rather than a headcount, because that is what LinkedIn publishes.
+
 ## What it reads and sends
 
 It reads the text of the job description on LinkedIn job pages. It sends nothing anywhere. There is no API key, no account, no server, and no analytics.
