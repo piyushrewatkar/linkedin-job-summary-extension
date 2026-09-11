@@ -21,6 +21,8 @@
     'main'
   ];
 
+  const MIN_PANE_TEXT = 800;
+
   const TOP_CARD_SELECTORS = [
     '.job-details-jobs-unified-top-card__container--two-pane',
     '.job-details-jobs-unified-top-card',
@@ -28,23 +30,70 @@
     '.jobs-details-top-card'
   ];
 
-  function firstMatch(selectors) {
+  function firstMatch(selectors, root) {
+    const scope = root || doc;
     for (const selector of selectors) {
-      const node = doc.querySelector(selector);
+      const node = scope.querySelector(selector);
       if (node) return node;
     }
     return null;
   }
 
+  // LinkedIn's filter bar carries four buttons labelled "Apply current filter to
+  // show results", and they sit above the job in the page. Matching one of those
+  // is what put the card at the top of the window. The job's own control is
+  // recognisable by its class or by an aria-label naming the job.
+  function isApplyControl(node) {
+    if (/jobs-apply-button/.test(String(node.className || ''))) return true;
+    const aria = node.getAttribute('aria-label') || '';
+    const text = (node.innerText || '').trim();
+    if (/\bfilter|show results|autofill/i.test(aria + ' ' + text)) return false;
+    if (/^apply to\b/i.test(aria)) return true;
+    return /^(easy\s+)?apply(\s+now)?$/i.test(text);
+  }
+
+  function applyControl(root) {
+    const nodes = (root || doc).querySelectorAll(
+      '.jobs-apply-button, button, a[role="button"]'
+    );
+    for (const node of nodes) {
+      if (isApplyControl(node)) return node;
+    }
+    return null;
+  }
+
+  function hasResultsList(node) {
+    return Boolean(
+      node &&
+        node.querySelector(
+          '.scaffold-layout__list, .jobs-search-results-list, .jobs-search-results__list'
+        )
+    );
+  }
+
+  // The job pane is the nearest ancestor of the Apply control holding a
+  // substantial amount of text. Climbing from the control cannot reach the
+  // results list, which is what a page-wide selector kept doing.
+  function jobPane() {
+    const apply = applyControl(doc);
+    if (apply) {
+      let node = apply.parentElement;
+      while (node && node !== doc.body) {
+        if ((node.innerText || '').trim().length >= MIN_PANE_TEXT) return node;
+        node = node.parentElement;
+      }
+    }
+    return firstMatch(PANE_SELECTORS);
+  }
+
   // Last resort: descend to the tightest wrapper around the pane's text. A plain
   // maximum cannot work, because an ancestor always holds at least as much text
-  // as its child and would always win. Descending also touches a handful of
-  // nodes rather than every node in the pane.
+  // as its child and would always win.
   function largestTextBlock(pane) {
-    if (!pane) return null;
+    if (!pane || hasResultsList(pane)) return null; // never read the results list
     let node = pane;
     let length = (node.innerText || '').trim().length;
-    if (length < 400) return null; // below this it is chrome, not a description
+    if (length < 400) return null;
     for (;;) {
       let next = null;
       for (const child of node.children) {
@@ -61,70 +110,32 @@
     }
   }
 
-  function findDescription() {
-    return firstMatch(DESCRIPTION_SELECTORS) || largestTextBlock(firstMatch(PANE_SELECTORS));
-  }
-
-  // Anchored on the Apply control rather than on a heading. Two earlier
-  // attempts keyed off the job title, and the title is not reliably an h1 or h2
-  // in this layout, so the search walked past the details pane and landed on a
-  // page-level heading in a full-width container. The Apply button is
-  // unmistakable, and it is exactly where the card is wanted: just below it.
-  function applyControl(root, description) {
-    const nodes = root.querySelectorAll(
-      '.jobs-apply-button, button, a[role="button"], a[class*="apply"]'
+  function findDescription(pane) {
+    return (
+      firstMatch(DESCRIPTION_SELECTORS, pane) ||
+      firstMatch(DESCRIPTION_SELECTORS) ||
+      largestTextBlock(pane)
     );
-    for (const node of nodes) {
-      if (description.contains(node)) continue;
-      const label =
-        (node.getAttribute('aria-label') || '') + ' ' + (node.innerText || '');
-      if (/(^|\s)(easy\s+)?apply(\s|$)/i.test(label) || /\bapply\s+to\b/i.test(label)) {
-        return node;
-      }
-    }
-    return null;
   }
 
-  function headingOutside(root, description) {
-    const headings = root.querySelectorAll('h1, h2, h3');
-    for (const heading of headings) {
-      if (!description.contains(heading)) return heading;
-    }
-    return null;
-  }
-
-  // The details pane is the nearest ancestor of the description that also holds
-  // the job's own Apply control, or failing that a heading. It cannot be the
-  // results list, because the description is not inside the results list.
-  function detailRoot(description) {
-    let node = description.parentElement;
-    while (node && node !== doc.body) {
-      const anchor =
-        applyControl(node, description) || headingOutside(node, description);
-      if (anchor) return { root: node, anchor: anchor };
-      node = node.parentElement;
-    }
-    return null;
-  }
-
-  // The header is the outermost block inside that root holding the anchor but
-  // not the description. Structure rather than class names, so a LinkedIn
-  // rename does not move the card.
-  function headerBlock(description) {
-    const found = detailRoot(description);
-    if (!found) return null;
+  // The header is the outermost block inside the pane that holds the Apply
+  // control but not the description, so the card lands directly beneath the
+  // Apply and Save buttons.
+  function headerBlock(pane, description) {
+    if (!pane || !description) return null;
+    const apply = applyControl(pane);
+    const anchor = apply || firstMatch(['h1', 'h2', 'h3'], pane);
+    if (!anchor || description.contains(anchor)) return null;
 
     for (const selector of TOP_CARD_SELECTORS) {
-      const known = found.root.querySelector(selector);
-      if (known && !known.contains(description) && known.contains(found.anchor)) {
-        return known;
-      }
+      const known = pane.querySelector(selector);
+      if (known && !known.contains(description) && known.contains(anchor)) return known;
     }
 
-    let node = found.anchor;
+    let node = anchor;
     while (
       node.parentElement &&
-      node.parentElement !== found.root &&
+      node.parentElement !== pane &&
       !node.parentElement.contains(description)
     ) {
       node = node.parentElement;
@@ -166,11 +177,11 @@
       lastKey = null;
       return;
     }
-    const description = findDescription();
+    const pane = jobPane();
+    const description = findDescription(pane);
 
     if (!description) {
       lastKey = null;
-      const pane = firstMatch(PANE_SELECTORS);
       const paneText = pane ? (pane.innerText || '').trim() : '';
       // Substantial content is present but no selector matched it, which means
       // LinkedIn's markup moved. Say so rather than vanish silently.
@@ -192,8 +203,6 @@
 
     if (existing && existing.parentNode) existing.parentNode.removeChild(existing);
 
-    const pane = firstMatch(PANE_SELECTORS);
-
     let card;
     try {
       const summary = root.LJSExtractor.extract(text);
@@ -212,7 +221,7 @@
       card = root.LJSCard.renderError('Could not read this posting.');
     }
 
-    const header = headerBlock(description);
+    const header = headerBlock(pane, description);
     if (header && header.parentNode) {
       header.parentNode.insertBefore(card, header.nextSibling);
     } else {
