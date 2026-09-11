@@ -191,3 +191,53 @@ test('unrelated numbers are not mistaken for years', () => {
   const out = yearsFor('Benefits:\nWe offer a 401k match and 20 days of leave.\nRequirements:\nJava.');
   assert.equal(out.headline, null);
 });
+
+const { extractEducation } = require('../src/extractor.js');
+
+const eduFor = (text) => extractEducation(usableSections(splitSections(text)));
+
+test('a bachelor degree with a field is captured', () => {
+  const out = eduFor("Requirements:\nBachelor's degree in Computer Science.");
+  assert.equal(out.level, "Bachelor's");
+  assert.equal(out.field, 'Computer Science');
+});
+
+test('abbreviations are recognised', () => {
+  assert.equal(eduFor('Requirements:\nBS in Electrical Engineering required.').level, "Bachelor's");
+  assert.equal(eduFor('Requirements:\nPh.D. preferred for this role.').level, 'PhD');
+});
+
+test('the lowest stated level is reported as the bar', () => {
+  const out = eduFor(
+    "Requirements:\nMaster's degree in Statistics, or a Bachelor's degree in a related field."
+  );
+  assert.equal(out.level, "Bachelor's");
+});
+
+test('equivalent experience is flagged', () => {
+  const out = eduFor("Requirements:\nBachelor's degree in CS or equivalent practical experience.");
+  assert.equal(out.equivalentOk, true);
+});
+
+test('no equivalency phrase means the flag is false', () => {
+  const out = eduFor("Requirements:\nBachelor's degree in Computer Science is required.");
+  assert.equal(out.equivalentOk, false);
+});
+
+test('a degree with no field still reports the level', () => {
+  const out = eduFor("Requirements:\nBachelor's degree required.");
+  assert.equal(out.level, "Bachelor's");
+  assert.equal(out.field, null);
+});
+
+test('"MS SQL Server" is not mistaken for a master degree', () => {
+  assert.equal(eduFor('Requirements:\nExperience with MS SQL Server and reporting.'), null);
+});
+
+test('"may be required" is not mistaken for a B.E. degree', () => {
+  assert.equal(eduFor('Requirements:\nTravel may be required for this role.'), null);
+});
+
+test('a posting with no education requirement returns null', () => {
+  assert.equal(eduFor('Requirements:\nStrong Java and Kubernetes skills.'), null);
+});

@@ -228,11 +228,97 @@
     };
   }
 
+  const EDU_FIELD = '(?:\\s+(?:in|of)\\s+([A-Za-z][A-Za-z ,/&-]{1,60}?))?';
+  const EDU_TAIL = '(?=[.,;:)\\n]|\\s+(?:or|and|with|is|are|required|preferred|from|plus)\\b|$)';
+
+  // Spelled-out levels are safe to match case-insensitively.
+  const EDU_WORD_RE = new RegExp(
+    "\\b(associate(?:'s|s)?|bachelor(?:'s|s)?|master(?:'s|s)?|mba|ph\\.?\\s?d\\.?|doctorate|doctoral)\\b" +
+      '(?:\\s+degree)?' + EDU_FIELD + EDU_TAIL,
+    'gi'
+  );
+
+  // Abbreviations must be matched case-sensitively. Case-insensitively, "B.E."
+  // also matches the ordinary word "be", so "travel may be required" would be
+  // reported as a bachelor degree.
+  const EDU_ABBR_RE = new RegExp(
+    '\\b(B\\.?S\\.?c?|B\\.?A\\.?|B\\.?E\\.?|B\\.?Tech|M\\.?S\\.?c?|M\\.?A\\.?|M\\.?Eng|M\\.?Tech)\\b' +
+      '(?:\\s+degree)?' + EDU_FIELD + EDU_TAIL,
+    'g'
+  );
+
+  const EQUIVALENT_RE =
+    /or\s+equivalent(?:\s+(?:practical\s+|relevant\s+|work\s+)?(?:experience|training|qualification)s?)?/i;
+
+  const LEVEL_RANK = { "Associate's": 1, "Bachelor's": 2, "Master's": 3, PhD: 4 };
+
+  function normalizeLevel(token) {
+    const t = token.toLowerCase().replace(/[.\s']/g, '');
+    if (/^assoc/.test(t)) return "Associate's";
+    if (/^(bachelors?|bsc?|ba|be|btech)$/.test(t)) return "Bachelor's";
+    if (/^(masters?|msc?|ma|meng|mtech|mba)$/.test(t)) return "Master's";
+    if (/^(phd|doctorate|doctoral)$/.test(t)) return 'PhD';
+    return null;
+  }
+
+  function cleanField(raw) {
+    if (!raw) return null;
+    const field = raw
+      .replace(/\s+/g, ' ')
+      .replace(/\s+(?:or|and)$/i, '')
+      .replace(/[,\s]+$/, '')
+      .trim();
+    if (field.length < 2) return null;
+    // Title-case a field that arrived shouting, leave normal casing alone.
+    return field === field.toUpperCase() && field.length > 3
+      ? field.charAt(0) + field.slice(1).toLowerCase()
+      : field;
+  }
+
+  function extractEducation(sections) {
+    const hits = [];
+
+    for (const section of sections) {
+      const text = section.text;
+      for (const re of [EDU_WORD_RE, EDU_ABBR_RE]) {
+        re.lastIndex = 0;
+        let m;
+        while ((m = re.exec(text)) !== null) {
+          const level = normalizeLevel(m[1]);
+          if (!level) continue;
+          const tail = text.slice(m.index + m[0].length, m.index + m[0].length + 100);
+          hits.push({
+            level: level,
+            rank: LEVEL_RANK[level],
+            field: cleanField(m[2]),
+            equivalentOk: EQUIVALENT_RE.test(tail),
+            required: section.type === 'required'
+          });
+        }
+      }
+    }
+
+    if (hits.length === 0) return null;
+
+    // The bar is the lowest acceptable degree, and a required section beats a
+    // preferred one when both name a degree.
+    const pool = hits.some((h) => h.required) ? hits.filter((h) => h.required) : hits;
+    pool.sort((a, b) => a.rank - b.rank);
+    const best = pool[0];
+
+    return {
+      level: best.level,
+      field: best.field,
+      equivalentOk: hits.some((h) => h.level === best.level && h.equivalentOk)
+    };
+  }
+
   root.LJSExtractor = {
     splitSections: splitSections,
     usableSections: usableSections,
     extractSkills: extractSkills,
-    extractYears: extractYears
+    extractYears: extractYears,
+    extractEducation: extractEducation
   };
   if (typeof module !== 'undefined' && module.exports) {
     module.exports = root.LJSExtractor;
