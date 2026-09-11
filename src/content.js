@@ -120,7 +120,19 @@
 
     let card;
     try {
-      card = root.LJSCard.render(root.LJSExtractor.extract(text));
+      const summary = root.LJSExtractor.extract(text);
+      // The Premium applicant panel sits outside the description element, so it
+      // is read from the whole details pane. On a free account the panel is not
+      // in the page at all and this simply comes back null.
+      const pane = firstMatch(PANE_SELECTORS);
+      summary.applicants = root.LJSApplicants.parse(pane ? pane.innerText || '' : text);
+      // The panel is not always inside the pane a given layout reports. Falling
+      // back to the whole page is safe because the heading it looks for is
+      // specific, and a miss simply leaves the figure off the card.
+      if (!summary.applicants && doc.body) {
+        summary.applicants = root.LJSApplicants.parse(doc.body.innerText || '');
+      }
+      card = root.LJSCard.render(summary);
     } catch (err) {
       card = root.LJSCard.renderError('Could not read this posting.');
     }

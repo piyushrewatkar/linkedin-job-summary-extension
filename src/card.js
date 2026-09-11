@@ -27,6 +27,22 @@
     }
   }
 
+  const PERIOD_LABEL = {
+    day: 'today',
+    '24 hours': 'today',
+    week: 'this week',
+    month: 'this month'
+  };
+
+  function applicantsText(applicants) {
+    let text = applicants.total.toLocaleString() + ' applied';
+    if (applicants.recent != null) {
+      text += ' · ' + applicants.recent.toLocaleString() +
+        ' ' + (PERIOD_LABEL[applicants.period] || 'recently');
+    }
+    return text;
+  }
+
   // "5+ years" is the extractor's wording. The card is deliberately short.
   function shortYears(label) {
     return label.replace(/\byears\b/, 'yrs').replace(/\byear\b/, 'yr');
@@ -39,17 +55,27 @@
   }
 
   function render(summary) {
-    if (!summary || summary.empty) {
+    // The applicant count is worth a card on its own, so a posting with no
+    // readable requirements is not empty when the count is present.
+    const applicants = summary && summary.applicants;
+    if (!summary || (summary.empty && !applicants)) {
       return renderError('No skills or experience requirements found.');
     }
     const card = shell(null);
 
     // Years and required skills share one line. Years leads, as a filled chip,
     // because it is the fastest disqualifier and should be the first thing read.
-    if (summary.years || summary.skillsRequired.length) {
+    // The applicant count sits beside it: it is context about the job rather
+    // than a requirement of it, so it gets its own colour.
+    if (summary.years || applicants || summary.skillsRequired.length) {
       const first = line(card, null);
       if (summary.years) {
         first.appendChild(el('span', 'ljs-card__yrs', shortYears(summary.years.label)));
+      }
+      if (applicants) {
+        const chip = el('span', 'ljs-card__apps', applicantsText(applicants));
+        chip.title = 'From the LinkedIn Premium panel on this page.';
+        first.appendChild(chip);
       }
       addTags(first, summary.skillsRequired, false);
     }

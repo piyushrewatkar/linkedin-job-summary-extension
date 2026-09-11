@@ -64,3 +64,13 @@
   background: rgba(214, 169, 60, 0.12);
   border-left-color: #d6a93c;
 }
+
+/* Amber echoes the gold square LinkedIn puts on the Premium block this comes
+   from, so the figure reads as quoted from the page rather than computed here. */
+.ljs-card__apps {
+  background: rgba(196, 141, 34, 0.16);
+  border: 1px solid rgba(196, 141, 34, 0.42);
+  border-radius: 9px;
+  padding: 0 7px;
+  white-space: nowrap;
+}

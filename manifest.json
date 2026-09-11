@@ -16,6 +16,7 @@
       "js": [
         "src/skills.js",
         "src/extractor.js",
+        "src/applicants.js",
         "src/card.js",
         "src/content.js"
       ],
