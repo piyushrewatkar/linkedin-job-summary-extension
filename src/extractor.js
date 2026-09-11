@@ -139,10 +139,100 @@
     };
   }
 
+  const NUM_WORDS = {
+    one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8,
+    nine: 9, ten: 10, eleven: 11, twelve: 12, thirteen: 13, fourteen: 14, fifteen: 15
+  };
+  const NUM = '\\d{1,2}|' + Object.keys(NUM_WORDS).join('|');
+
+  const YEARS_RE = new RegExp(
+    '(at least|minimum(?:\\s+of)?|min\\.?|no less than|over|more than)?\\s*' +
+      '(' + NUM + ')' +
+      '\\s*(?:(\\+|plus)|(?:\\s*(?:-|–|—|to)\\s*(' + NUM + ')))?' +
+      '\\s*\\+?\\s*(?:years?|yrs?)\\b',
+    'gi'
+  );
+
+  const EXPERIENCE_NEARBY_RE = /\b(experience|background|track record)\b/i;
+  const GENERAL_EXPERIENCE_RE =
+    /\b(professional|industry|relevant|overall|software|engineering|work|hands[-\s]on|combined)\s+experience\b|\byears?\s+of\s+experience\b/i;
+
+  function toNumber(token) {
+    if (token == null) return null;
+    const t = String(token).toLowerCase();
+    if (Object.prototype.hasOwnProperty.call(NUM_WORDS, t)) return NUM_WORDS[t];
+    const n = parseInt(t, 10);
+    return Number.isNaN(n) ? null : n;
+  }
+
+  function yearsLabel(min, max, plus) {
+    if (max != null) return min + '-' + max + ' years';
+    if (plus) return min + '+ years';
+    return min + (min === 1 ? ' year' : ' years');
+  }
+
+  function extractYears(sections) {
+    const matchers = getMatchers();
+    const candidates = [];
+    const perSkill = {};
+    let lineIndex = 0;
+
+    // The context window is one line, never the whole section. A wider window
+    // lets a skill on the next bullet capture the headline number, so
+    // "7+ years of experience" followed by "3+ years of Python" would be read
+    // as Python-specific and the job would show no overall bar.
+    for (const section of sections) {
+      for (const line of section.text.split(/\r?\n/)) {
+        YEARS_RE.lastIndex = 0;
+        let m;
+        while ((m = YEARS_RE.exec(line)) !== null) {
+          const min = toNumber(m[2]);
+          if (min == null || min > 40) continue;
+          const max = toNumber(m[4]);
+          const plus = Boolean(m[3]) || Boolean(m[1]);
+
+          let namedSkill = null;
+          for (const matcher of matchers) {
+            if (matcher.re.test(line)) {
+              namedSkill = matcher.name;
+              break;
+            }
+          }
+
+          if (namedSkill) {
+            if (perSkill[namedSkill] == null) perSkill[namedSkill] = min;
+            continue; // technology-specific, never the headline
+          }
+          if (!EXPERIENCE_NEARBY_RE.test(line)) continue; // "20 days", "401k" and friends
+
+          candidates.push({
+            min: min,
+            max: max,
+            label: yearsLabel(min, max, plus),
+            score:
+              (section.type === 'required' ? 2 : 0) +
+              (GENERAL_EXPERIENCE_RE.test(line) ? 2 : 0),
+            order: lineIndex * 1000 + m.index
+          });
+        }
+        lineIndex += 1;
+      }
+    }
+
+    candidates.sort((a, b) => (b.score - a.score) || (a.order - b.order));
+    const best = candidates[0] || null;
+
+    return {
+      headline: best ? { label: best.label, min: best.min, max: best.max } : null,
+      perSkill: perSkill
+    };
+  }
+
   root.LJSExtractor = {
     splitSections: splitSections,
     usableSections: usableSections,
-    extractSkills: extractSkills
+    extractSkills: extractSkills,
+    extractYears: extractYears
   };
   if (typeof module !== 'undefined' && module.exports) {
     module.exports = root.LJSExtractor;

@@ -129,3 +129,65 @@ test('boilerplate sections do not contribute skills', () => {
   );
   assert.ok(!out.required.includes('Excel'));
 });
+
+const { extractYears } = require('../src/extractor.js');
+
+const yearsFor = (text) => extractYears(usableSections(splitSections(text)));
+
+test('a plain "5+ years" becomes the headline', () => {
+  const out = yearsFor('Requirements:\n5+ years of professional software engineering experience.');
+  assert.equal(out.headline.label, '5+ years');
+  assert.equal(out.headline.min, 5);
+  assert.equal(out.headline.max, null);
+});
+
+test('a range is reported as a range', () => {
+  const out = yearsFor('Requirements:\n3-5 years of relevant experience.');
+  assert.equal(out.headline.label, '3-5 years');
+  assert.equal(out.headline.min, 3);
+  assert.equal(out.headline.max, 5);
+});
+
+test('"at least two years" is understood', () => {
+  const out = yearsFor('Requirements:\nAt least two years of industry experience.');
+  assert.equal(out.headline.label, '2+ years');
+});
+
+test('"minimum of 7 years" is understood', () => {
+  const out = yearsFor('Requirements:\nA minimum of 7 years of engineering experience.');
+  assert.equal(out.headline.label, '7+ years');
+});
+
+test('technology-specific years do not become the headline', () => {
+  const out = yearsFor(
+    'Requirements:\n' +
+    '7+ years of professional software engineering experience.\n' +
+    '3+ years of Python.'
+  );
+  assert.equal(out.headline.label, '7+ years');
+  assert.equal(out.perSkill.Python, 3);
+});
+
+test('technology-specific years are recorded per skill', () => {
+  const out = yearsFor('Requirements:\n4+ years working with Kubernetes in production.');
+  assert.equal(out.perSkill.Kubernetes, 4);
+});
+
+test('a required-section number outranks a preferred-section number', () => {
+  const out = yearsFor(
+    'Preferred:\n10 years of experience leading teams.\n' +
+    'Requirements:\n4+ years of professional experience.'
+  );
+  assert.equal(out.headline.label, '4+ years');
+});
+
+test('a posting with no numbers yields no headline', () => {
+  const out = yearsFor('Requirements:\nDeep experience with Java and strong communication skills.');
+  assert.equal(out.headline, null);
+  assert.deepEqual(out.perSkill, {});
+});
+
+test('unrelated numbers are not mistaken for years', () => {
+  const out = yearsFor('Benefits:\nWe offer a 401k match and 20 days of leave.\nRequirements:\nJava.');
+  assert.equal(out.headline, null);
+});
