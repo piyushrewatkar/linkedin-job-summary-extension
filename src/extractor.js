@@ -350,8 +350,31 @@
     }));
   }
 
+  // LinkedIn stacks its own panels above the posting: the profile match panel,
+  // the reach-out panel, the Premium comparison. When the element being read
+  // wraps those too, their text reaches the extractor as if the employer had
+  // written it, and the match panel lists skills from YOUR profile. That is how
+  // an Azure and .NET job ends up reporting Java, AWS and Spring Boot.
+  //
+  // The posting proper begins at its own heading, so everything before that
+  // heading is LinkedIn's, not the employer's.
+  const POSTING_START_RE =
+    /^[ \t]*(about the job|about this job|job description|about the role)[ \t]*:?[ \t]*$/im;
+
+  const MIN_POSTING_LENGTH = 200;
+
+  function trimToPosting(text) {
+    const source = String(text == null ? '' : text);
+    const start = POSTING_START_RE.exec(source);
+    if (!start) return source;
+    const body = source.slice(start.index + start[0].length);
+    // If almost nothing follows the heading it was not the real one, so keep
+    // the original rather than throwing the posting away.
+    return body.trim().length >= MIN_POSTING_LENGTH ? body : source;
+  }
+
   function extract(text) {
-    const sections = usableSections(splitSections(text));
+    const sections = usableSections(splitSections(trimToPosting(text)));
     const skills = extractSkills(sections);
     const years = extractYears(sections);
     const education = extractEducation(sections);
@@ -379,7 +402,8 @@
     extractSkills: extractSkills,
     extractYears: extractYears,
     extractEducation: extractEducation,
-    extract: extract
+    extract: extract,
+    trimToPosting: trimToPosting
   };
   if (typeof module !== 'undefined' && module.exports) {
     module.exports = root.LJSExtractor;

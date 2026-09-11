@@ -89,3 +89,45 @@ test('a real MA or BA degree is still recognised', () => {
   assert.equal(extract('Requirements\nMA in Economics required.').education.level, "Master's");
   assert.equal(extract('Requirements\nBA degree preferred.').education.level, "Bachelor's");
 });
+
+test('LinkedIn panels above the posting do not contribute skills', () => {
+  // The profile match panel lists skills from the reader's own profile. Read as
+  // part of the posting, it made an Azure and .NET job report Java and Spring Boot.
+  const page = [
+    'Your profile and resume match several of the required qualifications:',
+    'Show match details',
+    'Skills: Microservices, Java, AWS, Spring Boot, SQL, Machine learning, Accessibility',
+    'People you can reach out to',
+    'About the job',
+    'Design and develop secure backend APIs using .NET 8.0 (C#) and Python.',
+    'Containerize and orchestrate applications using Docker and Terraform on Azure.',
+    'Integrate and manage Kafka pipelines for real-time data streaming and events.'
+  ].join('\n');
+  const out = required(page);
+  for (const leaked of ['Java', 'AWS', 'Spring Boot', 'SQL', 'Machine learning', 'Accessibility']) {
+    assert.ok(!out.includes(leaked), leaked + ' leaked in from the profile panel');
+  }
+  for (const real of ['.NET', 'C#', 'Python', 'Docker', 'Terraform', 'Azure', 'Kafka']) {
+    assert.ok(out.includes(real), 'missing ' + real);
+  }
+});
+
+test('text with no posting heading is left alone', () => {
+  const { trimToPosting } = require('../src/extractor.js');
+  const plain = 'Requirements\nStrong Java and Kubernetes experience in production systems.';
+  assert.equal(trimToPosting(plain), plain);
+});
+
+test('a heading with almost nothing after it is not treated as the start', () => {
+  // Guards against throwing the posting away on a page where the phrase appears
+  // as a stray label rather than as the real heading.
+  const { trimToPosting } = require('../src/extractor.js');
+  const text = 'Strong Java, Kubernetes and Terraform experience building services.\nAbout the job\nsee below';
+  assert.equal(trimToPosting(text), text);
+});
+
+test('the posting heading itself is dropped, not kept as content', () => {
+  const { trimToPosting } = require('../src/extractor.js');
+  const body = 'x'.repeat(250);
+  assert.equal(trimToPosting('panel noise\nAbout the job\n' + body).trim(), body);
+});
