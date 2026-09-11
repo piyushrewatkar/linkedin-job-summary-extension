@@ -69,22 +69,43 @@
   // description, because LinkedIn stacks its own panels between the two and
   // they pushed the card below the fold.
   //
-  // Structurally the header is the outermost block that holds the job title but
-  // not the description, which survives a class rename in a way a selector list
-  // does not. The known selectors are tried first only because they are cheaper.
-  function headerBlock(pane, description) {
-    if (!pane || !description) return null;
+  // Everything here is resolved relative to the description, never to a
+  // page-wide pane. On the search layout the results list and the job details
+  // are siblings, and the list carries its own heading, often visually hidden.
+  // Searching from the top of the page found that heading first and inserted
+  // the card beside the list instead of inside the job.
+  //
+  // The detail root is the nearest ancestor of the description that also holds
+  // a heading outside it. That ancestor cannot be the results list, because the
+  // description is not inside the results list.
+  function detailRoot(description) {
+    let node = description.parentElement;
+    while (node && node !== doc.body) {
+      const headings = node.querySelectorAll('h1, h2');
+      for (const heading of headings) {
+        if (!description.contains(heading)) return { root: node, title: heading };
+      }
+      node = node.parentElement;
+    }
+    return null;
+  }
 
-    const known = firstMatch(TOP_CARD_SELECTORS);
-    if (known && !known.contains(description)) return known;
+  // The header is the outermost block inside the detail root that holds the job
+  // title but not the description. Structure rather than class names, so a
+  // LinkedIn rename does not move the card.
+  function headerBlock(description) {
+    const found = detailRoot(description);
+    if (!found) return null;
 
-    const title = pane.querySelector('h1') || pane.querySelector('h2');
-    if (!title || title.contains(description)) return null;
+    for (const selector of TOP_CARD_SELECTORS) {
+      const known = found.root.querySelector(selector);
+      if (known && !known.contains(description)) return known;
+    }
 
-    let node = title;
+    let node = found.title;
     while (
       node.parentElement &&
-      node.parentElement !== pane &&
+      node.parentElement !== found.root &&
       !node.parentElement.contains(description)
     ) {
       node = node.parentElement;
@@ -172,7 +193,7 @@
       card = root.LJSCard.renderError('Could not read this posting.');
     }
 
-    const header = headerBlock(pane, description);
+    const header = headerBlock(description);
     if (header && header.parentNode) {
       header.parentNode.insertBefore(card, header.nextSibling);
     } else {
