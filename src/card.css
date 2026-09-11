@@ -1,0 +1,65 @@
+.ljs-card {
+  border: 1px solid #d0d5dd;
+  border-radius: 8px;
+  padding: 12px 14px;
+  margin: 12px 0 16px 0;
+  background: #f8fafc;
+  font-family: -apple-system, system-ui, "Segoe UI", Roboto, sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+  color: #1f2328;
+}
+
+.ljs-card__title {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #0a66c2;
+  margin-bottom: 8px;
+}
+
+.ljs-card__row {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  margin-top: 6px;
+}
+
+.ljs-card__label {
+  flex: 0 0 96px;
+  font-weight: 600;
+  color: #4a5568;
+}
+
+.ljs-card__value {
+  flex: 1 1 auto;
+}
+
+.ljs-card__tag {
+  display: inline-block;
+  padding: 1px 8px;
+  margin: 2px 4px 2px 0;
+  border-radius: 10px;
+  background: #e6edf7;
+  border: 1px solid #c9d8ec;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.ljs-card__tag--preferred {
+  background: #f1f3f5;
+  border-color: #dde1e6;
+  color: #5a6470;
+}
+
+.ljs-card__tag-years {
+  color: #0a66c2;
+  font-weight: 600;
+}
+
+.ljs-card--error {
+  background: #fff8e6;
+  border-color: #e8d9a8;
+  color: #6b5b1f;
+}
