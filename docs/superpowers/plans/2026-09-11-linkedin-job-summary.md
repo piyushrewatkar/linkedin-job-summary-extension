@@ -969,7 +969,7 @@ test('Spring is not double-reported inside Spring Boot', () => {
 
 test('boilerplate sections do not contribute skills', () => {
   const out = skillsFor(
-    'Requirements:\nStrong Java and Spring Boot experience, with Kubernetes and AWS in production.\n' +
+    'Requirements:\nStrong Java and Spring Boot experience, with Kubernetes and AWS running in production environments.\n' +
     'Benefits:\nWe use Slack and offer Excel training.'
   );
   assert.ok(!out.required.includes('Excel'));
@@ -1032,7 +1032,7 @@ In `src/extractor.js`, insert the following immediately before the
   function extractSkills(sections) {
     const matchers = getMatchers();
     const found = new Map();
-    let order = 0;
+    let lineIndex = 0;
 
     for (const section of sections) {
       for (const line of section.text.split(/\r?\n/)) {
@@ -1041,15 +1041,23 @@ In `src/extractor.js`, insert the following immediately before the
             ? 'preferred'
             : 'required';
         for (const matcher of matchers) {
-          if (!matcher.re.test(line)) continue;
+          // exec rather than test: the match position is what orders skills that
+          // share a line. Counting once per line ties them, and a tie falls back
+          // to dictionary order, so "Kafka and gRPC" would report gRPC first.
+          const hit = matcher.re.exec(line);
+          if (!hit) continue;
           const prev = found.get(matcher.name);
           if (!prev) {
-            found.set(matcher.name, { name: matcher.name, group: lineGroup, order: order });
+            found.set(matcher.name, {
+              name: matcher.name,
+              group: lineGroup,
+              order: lineIndex * 10000 + hit.index
+            });
           } else if (prev.group === 'preferred' && lineGroup === 'required') {
             prev.group = 'required';
           }
         }
-        order += 1;
+        lineIndex += 1;
       }
     }
 
@@ -1696,7 +1704,7 @@ Add `extract: extract,` to the `root.LJSExtractor` object. The final export bloc
 
 - [ ] **Step 5: Run the whole suite**
 
-Run: `node --test test/`
+Run: `node --test test/*.test.js`
 Expected: PASS, all 48 tests across three files.
 
 If a fixture assertion fails, fix the extractor, not the fixture. The fixtures represent
@@ -1713,7 +1721,7 @@ Create `package.json`:
   "private": true,
   "description": "Edge extension that summarises LinkedIn job postings",
   "scripts": {
-    "test": "node --test test/"
+    "test": "node --test test/*.test.js"
   }
 }
 ```

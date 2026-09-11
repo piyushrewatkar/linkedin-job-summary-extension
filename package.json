@@ -1,0 +1,9 @@
+{
+  "name": "linkedin-job-summary",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Edge extension that summarises LinkedIn job postings",
+  "scripts": {
+    "test": "node --test test/*.test.js"
+  }
+}

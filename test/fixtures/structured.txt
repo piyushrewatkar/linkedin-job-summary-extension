@@ -1,0 +1,24 @@
+About the job
+
+We are building the payments platform that powers thousands of businesses.
+This role sits on the core services team.
+
+What You'll Do
+- Design and ship backend services that move money reliably.
+- Partner with product and design on new merchant features.
+
+Requirements
+- 5+ years of professional software engineering experience.
+- Strong proficiency in Java and Spring Boot.
+- Production experience with Kubernetes and AWS.
+- Solid working knowledge of PostgreSQL and query optimization.
+- Bachelor's degree in Computer Science or equivalent practical experience.
+
+Preferred Qualifications
+- Exposure to Kafka and event-driven architecture.
+- Experience with gRPC and Protocol Buffers.
+- Familiarity with Terraform.
+
+Benefits
+- Competitive salary, 401k match, and 20 days of paid leave.
+- We are an equal opportunity employer.

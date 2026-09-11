@@ -1,0 +1,12 @@
+About the job
+
+We are hiring a platform engineer to help us scale.
+
+Requirements
+- Deep hands on experience with Terraform and Kubernetes.
+- Comfortable operating services on Google Cloud.
+- Strong Go fundamentals and a bias toward automation.
+- Track record of improving CI/CD pipelines.
+
+Preferred
+- Prometheus and Grafana for observability.
