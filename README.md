@@ -14,10 +14,16 @@ The same folder loads in Chrome through `chrome://extensions` with the same step
 
 ## What it reads and sends
 
-It reads the text of the job description on pages under `https://www.linkedin.com/jobs/`.
-It sends nothing anywhere. There is no API key, no account, no server, and no analytics.
-The manifest declares no permissions beyond that one content script match, so the extension
-cannot see any other site.
+It reads the text of the job description on LinkedIn job pages. It sends nothing anywhere. There is no API key, no account, no server, and no analytics.
+The manifest declares no permissions at all beyond a single content script match, so the
+extension cannot see any other site.
+
+The match covers `linkedin.com` rather than `linkedin.com/jobs/` alone, and the script exits
+immediately on any path outside `/jobs/`. The wider match is necessary, not convenient: a
+content script loads only with the document, and LinkedIn routes between sections in the
+page, so arriving at Jobs from the feed never loaded the script at all. Narrowing the match
+again would mean adding the `scripting` permission and a background worker, which is strictly
+more access, not less.
 
 ## How it decides
 
@@ -29,8 +35,12 @@ Years of experience come from phrases like "5+ years" and "at least three years"
 sitting next to a specific technology qualifies that technology instead of becoming the
 headline, so "3 years of Python" shows as a tag on Python and does not become the job's bar.
 
-Education comes from degree phrases, and the lowest level stated is reported, because that
-is the actual bar.
+Education is extracted but no longer displayed, because the row cost more vertical space
+than it was worth. The `education` field is still on the summary object and still tested, so
+putting the row back is a few lines in `src/card.js`.
+
+The card inherits the page's text colour and uses translucent backgrounds, so it reads
+correctly in LinkedIn's light and dark themes without detecting which is active.
 
 ## Known limits
 
@@ -39,8 +49,8 @@ is the actual bar.
 - A posting that never states a number shows no Experience row. The extension does not guess.
 - LinkedIn can change its markup. If that happens the card says so rather than silently
   disappearing.
-- The card runs on `linkedin.com/jobs/` pages only. Job links from a company page land
-  there, so this covers normal browsing, but a job rendered anywhere else gets no card.
+- The card appears on `/jobs/` pages only. Job links from a company page land there, so this
+  covers normal browsing, but a job rendered anywhere else gets no card.
 
 ## Tests
 

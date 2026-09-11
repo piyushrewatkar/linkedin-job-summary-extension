@@ -10,66 +10,62 @@
     return node;
   }
 
-  function tagList(skills, preferred) {
-    const wrap = el('span');
+  function line(card, className) {
+    const node = el('div', 'ljs-card__line' + (className ? ' ' + className : ''));
+    card.appendChild(node);
+    return node;
+  }
+
+  function addTags(parent, skills, preferred) {
     for (const skill of skills) {
       const tag = el('span', 'ljs-card__tag' + (preferred ? ' ljs-card__tag--preferred' : ''));
       tag.appendChild(doc.createTextNode(skill.name));
       if (skill.years != null) {
-        const yrs = el('span', 'ljs-card__tag-years', ' ' + skill.years + '+y');
-        tag.appendChild(yrs);
+        tag.appendChild(el('span', 'ljs-card__tag-years', ' ' + skill.years + '+y'));
       }
-      wrap.appendChild(tag);
+      parent.appendChild(tag);
     }
-    return wrap;
   }
 
-  function row(parent, label, valueNode) {
-    const r = el('div', 'ljs-card__row');
-    r.appendChild(el('span', 'ljs-card__label', label));
-    const value = el('span', 'ljs-card__value');
-    value.appendChild(valueNode);
-    r.appendChild(value);
-    parent.appendChild(r);
-  }
-
-  function educationText(edu) {
-    let text = edu.level;
-    if (edu.field) text += ' in ' + edu.field;
-    if (edu.equivalentOk) text += ' (or equivalent experience)';
-    return text;
+  // "5+ years" is the extractor's wording. The card is deliberately short.
+  function shortYears(label) {
+    return label.replace(/\byears\b/, 'yrs').replace(/\byear\b/, 'yr');
   }
 
   function shell(extraClass) {
     const card = el('div', 'ljs-card' + (extraClass ? ' ' + extraClass : ''));
     card.setAttribute('data-ljs-card', 'true');
-    card.appendChild(el('div', 'ljs-card__title', 'Quick summary'));
     return card;
   }
 
   function render(summary) {
     if (!summary || summary.empty) {
-      return renderError('No skills or experience requirements found in this posting.');
+      return renderError('No skills or experience requirements found.');
     }
     const card = shell(null);
-    if (summary.years) {
-      row(card, 'Experience', doc.createTextNode(summary.years.label));
+
+    // Years and required skills share one line. Years leads, as a filled chip,
+    // because it is the fastest disqualifier and should be the first thing read.
+    if (summary.years || summary.skillsRequired.length) {
+      const first = line(card, null);
+      if (summary.years) {
+        first.appendChild(el('span', 'ljs-card__yrs', shortYears(summary.years.label)));
+      }
+      addTags(first, summary.skillsRequired, false);
     }
-    if (summary.skillsRequired.length) {
-      row(card, 'Required', tagList(summary.skillsRequired, false));
-    }
+
     if (summary.skillsPreferred.length) {
-      row(card, 'Preferred', tagList(summary.skillsPreferred, true));
+      const second = line(card, null);
+      second.appendChild(el('span', 'ljs-card__hint', 'nice to have'));
+      addTags(second, summary.skillsPreferred, true);
     }
-    if (summary.education) {
-      row(card, 'Education', doc.createTextNode(educationText(summary.education)));
-    }
+
     return card;
   }
 
   function renderError(message) {
     const card = shell('ljs-card--error');
-    row(card, 'Status', doc.createTextNode(message));
+    line(card, null).appendChild(doc.createTextNode(message));
     return card;
   }
 

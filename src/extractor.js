@@ -362,11 +362,12 @@
       skillsRequired: skillsRequired,
       skillsPreferred: skillsPreferred,
       education: education,
+      // Education is still extracted and returned, but the card no longer shows
+      // it, so it must not keep an otherwise-empty card alive.
       empty:
         years.headline === null &&
         skillsRequired.length === 0 &&
-        skillsPreferred.length === 0 &&
-        education === null
+        skillsPreferred.length === 0
     };
   }
 

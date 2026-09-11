@@ -79,7 +79,19 @@
 
   let lastKey = null;
 
+  // The script is injected across linkedin.com because a content script only
+  // loads with the document, and LinkedIn routes client side: arriving at
+  // /jobs/ from the feed never triggered an injection. It does nothing at all
+  // on any other section.
+  function onJobsPage() {
+    return root.location.pathname.indexOf('/jobs/') === 0;
+  }
+
   function update() {
+    if (!onJobsPage()) {
+      lastKey = null;
+      return;
+    }
     const description = findDescription();
 
     if (!description) {
