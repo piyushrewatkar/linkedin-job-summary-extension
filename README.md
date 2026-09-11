@@ -39,6 +39,8 @@ is the actual bar.
 - A posting that never states a number shows no Experience row. The extension does not guess.
 - LinkedIn can change its markup. If that happens the card says so rather than silently
   disappearing.
+- The card runs on `linkedin.com/jobs/` pages only. Job links from a company page land
+  there, so this covers normal browsing, but a job rendered anywhere else gets no card.
 
 ## Tests
 
