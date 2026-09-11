@@ -164,11 +164,6 @@
   );
 
   const EXPERIENCE_NEARBY_RE = /\b(experience|background|track record)\b/i;
-
-  // A years figure on a line stating a degree is an education requirement, not
-  // the job's experience bar. "Bachelor's degree plus 8 years" is the formal
-  // alternative path; the bar the posting leads with is the one to report.
-  const DEGREE_BAR_RE = /\b(bachelor|master|associate|doctorate|doctoral|ph\.?\s?d|mba|degree)\b/i;
   const GENERAL_EXPERIENCE_RE =
     /\b(professional|industry|relevant|overall|software|engineering|work|hands[-\s]on|combined)\s+experience\b|\byears?\s+of\s+experience\b/i;
 
@@ -206,29 +201,25 @@
           const max = toNumber(m[4]);
           const plus = Boolean(m[3]) || Boolean(m[1]);
 
-          // The qualifying skill, if any, is the one named just after the
-          // phrase, chosen by position rather than by dictionary order.
-          const end = m.index + m[0].length;
-          const near = line.slice(end, end + 40);
-          let nearest = Infinity;
           let namedSkill = null;
-          for (const matcher of matchers) {
-            const hit = matcher.re.exec(near);
-            if (hit && hit.index < nearest) {
-              nearest = hit.index;
-              namedSkill = matcher.name;
+          if (!GENERAL_EXPERIENCE_RE.test(line)) {
+            // "8+ years of professional experience building services on AWS" is
+            // the job's overall bar, not AWS's, so a general phrase wins outright.
+            // Otherwise the qualifying skill is the one named just after the
+            // phrase, chosen by position rather than by dictionary order.
+            const end = m.index + m[0].length;
+            const near = line.slice(end, end + 40);
+            let nearest = Infinity;
+            for (const matcher of matchers) {
+              const hit = matcher.re.exec(near);
+              if (hit && hit.index < nearest) {
+                nearest = hit.index;
+                namedSkill = matcher.name;
+              }
             }
           }
 
-          // "5+ years of solid programming experience in Java" states the job's
-          // bar and then names the language. The word experience standing
-          // between the two marks it as general. "3+ years of Python" has no
-          // such word, so that number belongs to Python.
-          const experienceFirst =
-            namedSkill !== null && /\bexperience\b/i.test(near.slice(0, nearest));
-          const isGeneral = GENERAL_EXPERIENCE_RE.test(line) || experienceFirst;
-
-          if (namedSkill && !isGeneral) {
+          if (namedSkill) {
             if (perSkill[namedSkill] == null) perSkill[namedSkill] = min;
             continue; // technology-specific, never the headline
           }
@@ -240,8 +231,7 @@
             label: yearsLabel(min, max, plus),
             score:
               (section.type === 'required' ? 2 : 0) +
-              (isGeneral ? 2 : 0) -
-              (DEGREE_BAR_RE.test(line) ? 1 : 0),
+              (GENERAL_EXPERIENCE_RE.test(line) ? 2 : 0),
             order: lineIndex * 1000 + m.index
           });
         }
