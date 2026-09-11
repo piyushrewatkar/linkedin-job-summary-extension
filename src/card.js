@@ -79,9 +79,12 @@
       }
       if (summary.company) {
         const chip = el('span', 'ljs-card__co', summary.company.label);
-        chip.title = summary.company.onLinkedIn != null
-          ? summary.company.onLinkedIn.toLocaleString() + ' of them are on LinkedIn.'
-          : 'Company size, as stated on the job page.';
+        chip.title = summary.company.exact
+          ? 'Employees with a LinkedIn profile. LinkedIn publishes no exact ' +
+            'headcount' + (summary.company.bracket
+              ? ', only the bracket ' + summary.company.bracket + '.'
+              : '.')
+          : 'Company size bracket, as stated on the job page.';
         first.appendChild(chip);
       }
       addTags(first, summary.skillsRequired, false);

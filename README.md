@@ -13,12 +13,14 @@ The same folder loads in Chrome through `chrome://extensions` with the same step
 
 ## Company size
 
-When the job page states the company's size, the card shows it as a slate chip,
-abbreviated so it stays scannable: "1,001-5,000 employees" renders as `1k-5k employees`.
-Hovering shows how many of them are on LinkedIn, which is a different number and a much
-smaller one.
+LinkedIn publishes no exact headcount for a company. The job page gives a bracket, such as
+"1,001-5,000 employees", and one precise figure, "1,662 on LinkedIn", which counts employees
+holding a LinkedIn profile rather than employees.
 
-It is a bracket rather than a headcount, because that is what LinkedIn publishes.
+The card shows the precise figure because it is precise, labelled `1,662 on LinkedIn` so it
+is not mistaken for a headcount. It undercounts by however many staff have no LinkedIn
+account. Hovering shows the bracket. On a page giving only the bracket, the chip shows that
+instead, abbreviated to `1k-5k employees` so it stays scannable.
 
 ## What it reads and sends
 

@@ -26,7 +26,7 @@
 
     let min = null;
     let max = null;
-    let label = null;
+    let bracket = null;
 
     const range = RANGE_RE.exec(source);
     const open = OPEN_RE.exec(source);
@@ -35,24 +35,31 @@
     if (range) {
       min = toNumber(range[1]);
       max = toNumber(range[2]);
-      if (min != null && max != null) label = shorten(min) + '-' + shorten(max) + ' employees';
+      if (min != null && max != null) bracket = shorten(min) + '-' + shorten(max) + ' employees';
     } else if (open) {
       min = toNumber(open[1]);
-      if (min != null) label = shorten(min) + '+ employees';
+      if (min != null) bracket = shorten(min) + '+ employees';
     } else if (exact) {
       min = toNumber(exact[1]);
       max = min;
-      if (min != null) label = shorten(min) + ' employees';
+      if (min != null) bracket = shorten(min) + ' employees';
     }
 
-    if (!label) return null;
+    const match = ON_LINKEDIN_RE.exec(source);
+    const onLinkedIn = match ? toNumber(match[1]) : null;
+    if (!bracket && onLinkedIn == null) return null;
 
-    const onLinkedIn = ON_LINKEDIN_RE.exec(source);
+    // LinkedIn publishes no exact headcount, only a bracket. The one precise
+    // figure on the page counts profiles, not staff, and it undercounts by
+    // however many employees have no LinkedIn account. It is shown when it is
+    // there because it is exact, and labelled for what it actually is.
     return {
-      label: label,
+      label: onLinkedIn != null ? onLinkedIn.toLocaleString() + ' on LinkedIn' : bracket,
+      exact: onLinkedIn != null,
+      bracket: bracket,
       min: min,
       max: max,
-      onLinkedIn: onLinkedIn ? toNumber(onLinkedIn[1]) : null
+      onLinkedIn: onLinkedIn
     };
   }
 
