@@ -89,3 +89,38 @@ test('a real MA or BA degree is still recognised', () => {
   assert.equal(extract('Requirements\nMA in Economics required.').education.level, "Master's");
   assert.equal(extract('Requirements\nBA degree preferred.').education.level, "Bachelor's");
 });
+
+test('"years of programming experience in X" is the job bar, not X\'s', () => {
+  // A posting that states its bar and then names the language. The word
+  // experience standing between the two is what marks it as general.
+  const summary = extract(
+    'Requirements\n5+ years of solid programming experience in Java core libraries.'
+  );
+  assert.equal(summary.years.label, '5+ years');
+  assert.equal(summary.skillsRequired.find((s) => s.name === 'Java').years, null);
+});
+
+test('a plain years line outranks a degree-plus-years line', () => {
+  // Postings often end with "Bachelor's degree plus N years or equivalent",
+  // which is the formal alternative path rather than the bar they lead with.
+  const summary = extract(
+    'Requirements\n' +
+      '5+ years of solid programming experience in Java.\n' +
+      "Bachelor's Degree in Computer Science plus 8 years of experience or equivalent."
+  );
+  assert.equal(summary.years.label, '5+ years');
+});
+
+test('a degree-plus-years line is still used when it is the only number', () => {
+  const summary = extract(
+    "Requirements\nBachelor's Degree in Computer Science plus 8 years of experience."
+  );
+  assert.equal(summary.years.label, '8 years');
+});
+
+test('a bare technology number still belongs to that technology', () => {
+  // Guards the fix above against over-correcting.
+  const summary = extract('Requirements\n3+ years of Python in a production setting.');
+  assert.equal(summary.years, null);
+  assert.equal(summary.skillsRequired.find((s) => s.name === 'Python').years, 3);
+});

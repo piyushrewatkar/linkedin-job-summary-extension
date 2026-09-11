@@ -222,6 +222,7 @@
     { name: 'Spinnaker' },
     { name: 'Nginx' },
     { name: 'Apache HTTP Server', aliases: ['apache httpd'] },
+    { name: 'Tomcat', aliases: ['apache tomcat'] },
     { name: 'HAProxy' },
     { name: 'Istio' },
     { name: 'Envoy' },
