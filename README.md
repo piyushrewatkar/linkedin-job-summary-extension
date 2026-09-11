@@ -1,8 +1,7 @@
 # LinkedIn Job Summary
 
-A browser extension that puts a summary card above every LinkedIn job description, so you
-can see the required skills, the years of experience, and the education bar without
-scrolling the posting.
+A browser extension that puts a summary card directly under the job header on LinkedIn, so
+you can see the required skills and the years of experience without scrolling the posting.
 
 ## Install in Edge
 

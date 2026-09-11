@@ -21,6 +21,13 @@
     'main'
   ];
 
+  const TOP_CARD_SELECTORS = [
+    '.job-details-jobs-unified-top-card__container--two-pane',
+    '.job-details-jobs-unified-top-card',
+    '.jobs-unified-top-card',
+    '.jobs-details-top-card'
+  ];
+
   function firstMatch(selectors) {
     for (const selector of selectors) {
       const node = doc.querySelector(selector);
@@ -56,6 +63,33 @@
 
   function findDescription() {
     return firstMatch(DESCRIPTION_SELECTORS) || largestTextBlock(firstMatch(PANE_SELECTORS));
+  }
+
+  // The card sits directly under the job header rather than above the
+  // description, because LinkedIn stacks its own panels between the two and
+  // they pushed the card below the fold.
+  //
+  // Structurally the header is the outermost block that holds the job title but
+  // not the description, which survives a class rename in a way a selector list
+  // does not. The known selectors are tried first only because they are cheaper.
+  function headerBlock(pane, description) {
+    if (!pane || !description) return null;
+
+    const known = firstMatch(TOP_CARD_SELECTORS);
+    if (known && !known.contains(description)) return known;
+
+    const title = pane.querySelector('h1') || pane.querySelector('h2');
+    if (!title || title.contains(description)) return null;
+
+    let node = title;
+    while (
+      node.parentElement &&
+      node.parentElement !== pane &&
+      !node.parentElement.contains(description)
+    ) {
+      node = node.parentElement;
+    }
+    return node.parentElement ? node : null;
   }
 
   function hashOf(text) {
@@ -118,13 +152,14 @@
 
     if (existing && existing.parentNode) existing.parentNode.removeChild(existing);
 
+    const pane = firstMatch(PANE_SELECTORS);
+
     let card;
     try {
       const summary = root.LJSExtractor.extract(text);
       // The Premium applicant panel sits outside the description element, so it
       // is read from the whole details pane. On a free account the panel is not
       // in the page at all and this simply comes back null.
-      const pane = firstMatch(PANE_SELECTORS);
       summary.applicants = root.LJSApplicants.parse(pane ? pane.innerText || '' : text);
       // The panel is not always inside the pane a given layout reports. Falling
       // back to the whole page is safe because the heading it looks for is
@@ -137,8 +172,15 @@
       card = root.LJSCard.renderError('Could not read this posting.');
     }
 
-    if (!description.parentNode) return;
-    description.parentNode.insertBefore(card, description);
+    const header = headerBlock(pane, description);
+    if (header && header.parentNode) {
+      header.parentNode.insertBefore(card, header.nextSibling);
+    } else {
+      // No header found: fall back to sitting above the description, which is
+      // where the card used to live and is still better than not showing.
+      if (!description.parentNode) return;
+      description.parentNode.insertBefore(card, description);
+    }
     lastKey = key;
   }
 
