@@ -1696,7 +1696,7 @@ Add `extract: extract,` to the `root.LJSExtractor` object. The final export bloc
 
 - [ ] **Step 5: Run the whole suite**
 
-Run: `node --test test/`
+Run: `node --test test/*.test.js`
 Expected: PASS, all 48 tests across three files.
 
 If a fixture assertion fails, fix the extractor, not the fixture. The fixtures represent
@@ -1713,7 +1713,7 @@ Create `package.json`:
   "private": true,
   "description": "Edge extension that summarises LinkedIn job postings",
   "scripts": {
-    "test": "node --test test/"
+    "test": "node --test test/*.test.js"
   }
 }
 ```
