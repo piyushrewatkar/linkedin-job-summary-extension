@@ -118,70 +118,40 @@
     );
   }
 
-  // Anchors to try, best first. Naming the right container has failed across
-  // LinkedIn's layout variants, so instead every candidate is tried and the
-  // result is measured. Geometry does not vary between variants.
-  function headerCandidates(pane, description) {
-    const anchor = applyControl(pane) || firstMatch(['h1', 'h2', 'h3'], pane);
-    const candidates = [];
-    if (!anchor || description.contains(anchor)) return candidates;
+  // Placement is derived from the Apply control and measured on the candidate
+  // elements themselves. Nothing is inserted to find out whether it fits, so
+  // there is no churn: earlier versions trial-inserted and removed the card,
+  // which is what made it flicker.
+  //
+  // The description's own width is the reference, because that is the job
+  // column by definition. Naming containers failed across LinkedIn's layout
+  // variants; widths do not vary.
+  function headerBlock(pane, description) {
+    const apply = applyControl(pane);
+    if (!apply || description.contains(apply)) return null;
 
-    for (const selector of TOP_CARD_SELECTORS) {
-      const known = pane.querySelector(selector);
-      if (known && !known.contains(description) && known.contains(anchor)) {
-        candidates.push(known);
+    const target = description.getBoundingClientRect();
+    if (!target.width) return null;
+
+    let node = apply;
+    while (node && node !== pane && node !== doc.body) {
+      if (node.contains(description)) return null; // gone past the header
+      const box = node.getBoundingClientRect();
+      if (Math.abs(box.width - target.width) <= 96 && Math.abs(box.left - target.left) <= 24) {
+        return node;
       }
-    }
-
-    // Every block from the Apply control outwards that still excludes the
-    // description. The outermost is usually the header, but not always, so the
-    // inner ones are kept as alternatives.
-    let node = anchor;
-    const chain = [];
-    while (
-      node.parentElement &&
-      node.parentElement !== pane &&
-      !node.parentElement.contains(description)
-    ) {
       node = node.parentElement;
-      chain.push(node);
     }
-    for (let i = chain.length - 1; i >= 0; i -= 1) candidates.push(chain[i]);
-    return candidates;
-  }
-
-  // A correct placement sits in the same column as the description and above
-  // it. A card spanning both columns, or sitting below the posting, is wrong
-  // however plausible the element that produced it looked.
-  function placementLooksRight(card, description) {
-    const c = card.getBoundingClientRect();
-    const d = description.getBoundingClientRect();
-    if (!c.width || !d.width) return null; // not laid out yet, cannot judge
-    const sameColumn = Math.abs(c.left - d.left) <= 24 && Math.abs(c.width - d.width) <= 96;
-    return sameColumn && c.top <= d.top + 1;
+    return null;
   }
 
   function placeCard(card, pane, description) {
-    let unmeasured = null;
-
-    for (const candidate of headerCandidates(pane, description)) {
-      if (!candidate.parentNode) continue;
-      candidate.parentNode.insertBefore(card, candidate.nextSibling);
-      const verdict = placementLooksRight(card, description);
-      if (verdict === true) return 'header';
-      // A candidate that cannot be measured is a second choice at best: a
-      // measured pass always wins over one that merely did not fail.
-      if (verdict === null && !unmeasured) unmeasured = candidate;
-      card.parentNode.removeChild(card);
+    const header = headerBlock(pane, description);
+    if (header && header.parentNode) {
+      header.parentNode.insertBefore(card, header.nextSibling);
+      return 'header';
     }
-
-    if (unmeasured && unmeasured.parentNode) {
-      unmeasured.parentNode.insertBefore(card, unmeasured.nextSibling);
-      return 'unmeasured';
-    }
-
-    // Directly above the description is always the right column, just lower
-    // than ideal. Better a correct column than a card across the whole page.
+    // Above the description is always the job column, just lower than ideal.
     if (!description.parentNode) return null;
     description.parentNode.insertBefore(card, description);
     return 'above-description';
@@ -207,7 +177,11 @@
   }
 
   let lastKey = null;
-  let verifyTimer = null;
+  // LinkedIn re-renders the pane and takes the card with it. Re-inserting is
+  // correct, but unbounded re-insertion against a container React keeps
+  // rebuilding is a flicker, so give up after a few tries on the same job.
+  let placements = 0;
+  const MAX_PLACEMENTS = 4;
 
   // The script is injected across linkedin.com because a content script only
   // loads with the document, and LinkedIn routes client side: arriving at
@@ -243,8 +217,10 @@
     if (text.trim().length < 40) return; // pane still loading
 
     const key = jobKey(text);
+    if (key !== lastKey) placements = 0;
     const existing = doc.querySelector('[' + CARD_ATTR + ']');
     if (key === lastKey && existing) return;
+    if (key === lastKey && placements >= MAX_PLACEMENTS) return; // stop flickering
 
     if (existing && existing.parentNode) existing.parentNode.removeChild(existing);
 
@@ -266,26 +242,9 @@
       card = root.LJSCard.renderError('Could not read this posting.');
     }
 
-    const placement = placeCard(card, pane, description);
-    if (!placement) return;
+    if (!placeCard(card, pane, description)) return;
     lastKey = key;
-
-    // Layout is not always settled at insertion time, and LinkedIn re-renders
-    // after ours. Re-check once the page has stopped moving and redo the
-    // placement if it drifted.
-    if (verifyTimer) root.clearTimeout(verifyTimer);
-    verifyTimer = root.setTimeout(function () {
-      verifyTimer = null;
-      const placed = doc.querySelector('[' + CARD_ATTR + ']');
-      if (!placed) return;
-      const desc = findDescription(jobPane());
-      if (!desc) return;
-      if (placementLooksRight(placed, desc) === false) {
-        if (placed.parentNode) placed.parentNode.removeChild(placed);
-        lastKey = null;
-        schedule();
-      }
-    }, 900);
+    placements += 1;
   }
 
   let pending = null;
