@@ -58,7 +58,92 @@
       .filter((b) => b.text.length > 0);
   }
 
-  root.LJSExtractor = { splitSections: splitSections };
+  const PREFERRED_LINE_RE =
+    /\b(preferred|nice[-\s]to[-\s]have|a plus|bonus|desirable|ideally|would be (?:great|nice)|familiarity with)\b/i;
+
+  function escapeRegExp(s) {
+    return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  }
+
+  let matcherCache = null;
+
+  function getMatchers() {
+    if (matcherCache) return matcherCache;
+    const skills = root.LJS_SKILLS || [];
+    matcherCache = skills.map((skill) => {
+      if (skill.pattern) return { name: skill.name, re: skill.pattern };
+      const terms = [skill.name].concat(skill.aliases || []);
+      const alt = terms
+        .slice()
+        .sort((a, b) => b.length - a.length)
+        .map(escapeRegExp)
+        .join('|');
+      return {
+        name: skill.name,
+        re: new RegExp('(?<![A-Za-z0-9])(?:' + alt + ')(?![A-Za-z0-9])', 'i')
+      };
+    });
+    return matcherCache;
+  }
+
+  // Boilerplate is dropped only when real content survives. A posting whose whole
+  // body sits under a single "About us" heading would otherwise yield nothing.
+  function usableSections(sections) {
+    const useful = sections.filter((s) => s.type !== 'other');
+    const hasSubstance = useful.some((s) => s.text.length >= 80);
+    if (hasSubstance) return useful;
+    return sections.map((s) => ({
+      type: s.type === 'other' ? 'required' : s.type,
+      text: s.text
+    }));
+  }
+
+  const MAX_PER_GROUP = 12;
+
+  function extractSkills(sections) {
+    const matchers = getMatchers();
+    const found = new Map();
+    let lineIndex = 0;
+
+    for (const section of sections) {
+      for (const line of section.text.split(/\r?\n/)) {
+        const lineGroup =
+          PREFERRED_LINE_RE.test(line) || section.type === 'preferred'
+            ? 'preferred'
+            : 'required';
+        for (const matcher of matchers) {
+          // exec rather than test: the match position is what orders skills that
+          // share a line. Counting once per line ties them, and a tie falls back
+          // to dictionary order, so "Kafka and gRPC" would report gRPC first.
+          const hit = matcher.re.exec(line);
+          if (!hit) continue;
+          const prev = found.get(matcher.name);
+          if (!prev) {
+            found.set(matcher.name, {
+              name: matcher.name,
+              group: lineGroup,
+              order: lineIndex * 10000 + hit.index
+            });
+          } else if (prev.group === 'preferred' && lineGroup === 'required') {
+            prev.group = 'required';
+          }
+        }
+        lineIndex += 1;
+      }
+    }
+
+    const all = Array.from(found.values()).sort((a, b) => a.order - b.order);
+    return {
+      required: all.filter((s) => s.group === 'required').slice(0, MAX_PER_GROUP).map((s) => s.name),
+      preferred: all.filter((s) => s.group === 'preferred').slice(0, MAX_PER_GROUP).map((s) => s.name)
+    };
+  }
+
+  root.LJSExtractor = {
+    splitSections: splitSections,
+    usableSections: usableSections,
+    extractSkills: extractSkills
+  };
   if (typeof module !== 'undefined' && module.exports) {
     module.exports = root.LJSExtractor;
   }
