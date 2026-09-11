@@ -107,7 +107,9 @@
     }));
   }
 
-  const MAX_PER_GROUP = 12;
+  // Twelve was too few. A real posting can state twenty technologies, and
+  // cutting .NET and C# from a .NET job defeats the point of the card.
+  const MAX_PER_GROUP = 24;
 
   function extractSkills(sections) {
     const matchers = getMatchers();

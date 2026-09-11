@@ -108,12 +108,13 @@ test('aliases resolve to the canonical name', () => {
   assert.ok(out.required.includes('Google Cloud'));
 });
 
-test('each group is capped at twelve entries', () => {
+test('each group is capped so the card stays scannable', () => {
   const many = 'Requirements:\n' + [
     'Java', 'Python', 'Go', 'Rust', 'Ruby', 'PHP', 'Swift', 'Kotlin', 'Scala',
-    'Perl', 'Elixir', 'Haskell', 'Clojure', 'Groovy', 'Lua'
+    'Perl', 'Elixir', 'Haskell', 'Clojure', 'Groovy', 'Lua', 'Erlang', 'Dart',
+    'Julia', 'Solidity', 'MATLAB', 'COBOL', 'Fortran'
   ].join(', ') + '.';
-  assert.equal(skillsFor(many).required.length, 12);
+  assert.equal(skillsFor(many).required.length, 22);
 });
 
 test('Spring is not double-reported inside Spring Boot', () => {
